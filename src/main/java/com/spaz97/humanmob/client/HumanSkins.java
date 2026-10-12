@@ -2,6 +2,7 @@ package com.spaz97.humanmob.client;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
+import com.spaz97.humanmob.HumanMobConfig;
 import com.spaz97.humanmob.entity.Human;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.DefaultPlayerSkin;
@@ -9,30 +10,39 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.entity.SkullBlockEntity;
 
+import javax.annotation.Nullable;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 
 /**
- * Looks up player skins for name-tagged Humans (asynchronously, once per name) and
- * falls back to the default Steve skin while loading or if no such player exists.
+ * Looks up player skins for Humans (asynchronously, once per name) and falls back to
+ * the default Steve skin while loading or if no such player exists.
  */
 public final class HumanSkins {
-    private static final Pattern PLAYER_NAME = Pattern.compile("[A-Za-z0-9_]{3,16}");
     private static final Map<String, ResourceLocation> SKINS = new ConcurrentHashMap<>();
     private static final Set<String> REQUESTED = ConcurrentHashMap.newKeySet();
 
     private HumanSkins() {}
 
-    public static ResourceLocation get(Human human) {
+    /**
+     * Which player's skin this Human wears: a name tag with a valid player name wins,
+     * otherwise the skin picked from the config when it spawned. Null = default skin.
+     */
+    @Nullable
+    public static String skinNameFor(Human human) {
         Component customName = human.getCustomName();
-        if (customName == null) {
-            return DefaultPlayerSkin.getDefaultSkin();
+        if (customName != null && HumanMobConfig.isValidPlayerName(customName.getString())) {
+            return customName.getString();
         }
-        String name = customName.getString();
-        if (!PLAYER_NAME.matcher(name).matches()) {
+        String configured = human.getSkinName();
+        return HumanMobConfig.isValidPlayerName(configured) ? configured : null;
+    }
+
+    public static ResourceLocation get(Human human) {
+        String name = skinNameFor(human);
+        if (name == null) {
             return DefaultPlayerSkin.getDefaultSkin();
         }
         String key = name.toLowerCase(Locale.ROOT);

@@ -10,10 +10,9 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
-import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
-/** Easter egg carried over from the original: a Human named "deadmau5" gets the ears. */
+/** Easter egg carried over from the original: a Human wearing deadmau5's skin gets the ears. */
 public class Deadmau5EarsLayer extends RenderLayer<Human, PlayerModel<Human>> {
 
     public Deadmau5EarsLayer(RenderLayerParent<Human, PlayerModel<Human>> parent) {
@@ -24,8 +23,7 @@ public class Deadmau5EarsLayer extends RenderLayer<Human, PlayerModel<Human>> {
     public void render(PoseStack poseStack, MultiBufferSource buffers, int packedLight, Human human,
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                        float netHeadYaw, float headPitch) {
-        Component name = human.getCustomName();
-        if (name == null || !"deadmau5".equals(name.getString()) || human.isInvisible()) {
+        if (!"deadmau5".equalsIgnoreCase(HumanSkins.skinNameFor(human)) || human.isInvisible()) {
             return;
         }
         VertexConsumer consumer = buffers.getBuffer(RenderType.entitySolid(this.getTextureLocation(human)));

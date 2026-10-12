@@ -1,9 +1,17 @@
 package com.spaz97.humanmob.entity;
 
+import com.spaz97.humanmob.HumanMobConfig;
 import com.spaz97.humanmob.HumanMobMod;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -32,6 +40,7 @@ import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -49,12 +58,43 @@ public class Human extends Monster {
             new ResourceLocation(HumanMobMod.MODID, "diamonds_to_you");
     private static final int DIAMOND_HOLD_TICKS = 50;
 
+    /** Player name whose skin this Human wears ("" = default skin). Synced to clients. */
+    private static final EntityDataAccessor<String> DATA_SKIN =
+            SynchedEntityData.defineId(Human.class, EntityDataSerializers.STRING);
+
     @Nullable private UUID friendId;
     @Nullable private String friendName;
     private int diamondTimer;
 
     public Human(EntityType<? extends Human> type, Level level) {
         super(type, level);
+    }
+
+    @Override
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        this.entityData.define(DATA_SKIN, "");
+    }
+
+    public String getSkinName() {
+        return this.entityData.get(DATA_SKIN);
+    }
+
+    public void setSkinName(@Nullable String name) {
+        this.entityData.set(DATA_SKIN, name == null ? "" : name);
+    }
+
+    @Override
+    @Nullable
+    public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason,
+                                        @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
+        SpawnGroupData result = super.finalizeSpawn(level, difficulty, reason, spawnData, dataTag);
+        // Pick a random skin from the config list.
+        List<? extends String> skins = HumanMobConfig.SKINS.get();
+        if (!skins.isEmpty()) {
+            this.setSkinName(skins.get(this.random.nextInt(skins.size())));
+        }
+        return result;
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -218,6 +258,9 @@ public class Human extends Monster {
             tag.putString("Friend", this.friendName);
         }
         tag.putInt("DiamondTimer", this.diamondTimer);
+        if (!this.getSkinName().isEmpty()) {
+            tag.putString("Skin", this.getSkinName());
+        }
     }
 
     @Override
@@ -226,6 +269,7 @@ public class Human extends Monster {
         this.friendId = tag.hasUUID("FriendUUID") ? tag.getUUID("FriendUUID") : null;
         this.friendName = tag.contains("Friend") && !tag.getString("Friend").isEmpty() ? tag.getString("Friend") : null;
         this.diamondTimer = tag.contains("DiamondTimer") ? tag.getInt("DiamondTimer") : -1;
+        this.setSkinName(tag.getString("Skin"));
     }
 
     // ---------------------------------------------------------------- sounds (player-like)

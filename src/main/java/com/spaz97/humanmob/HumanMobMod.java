@@ -10,7 +10,9 @@ import net.minecraftforge.common.ForgeSpawnEggItem;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -41,6 +43,7 @@ public class HumanMobMod {
         ITEMS.register(modBus);
         modBus.addListener(this::onAttributes);
         modBus.addListener(this::onCreativeTabs);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, HumanMobConfig.SPEC);
     }
 
     private void onAttributes(EntityAttributeCreationEvent event) {
