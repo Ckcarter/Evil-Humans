@@ -3,6 +3,7 @@ package com.spaz97.humanmob.entity;
 import com.spaz97.humanmob.HumanMobConfig;
 import com.spaz97.humanmob.HumanMobMod;
 import net.minecraft.advancements.Advancement;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -17,6 +18,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -32,7 +36,6 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -49,9 +52,9 @@ import java.util.UUID;
  * <ul>
  *   <li>Evil (default config): without a friend it attacks players on sight and ignores monsters.
  *       With {@code evil = false} it hunts monsters instead and only fights players who attack it.</li>
- *   <li>Throw it a diamond and the thrower becomes its friend: it stops attacking players, follows you,
- *       and pockets the diamond after a couple of seconds.</li>
- *   <li>Give your friend a sword and it will fight monsters again while still following you.</li>
+ *   <li>It never picks items up. Right-click it with a diamond and you become its friend: it stops
+ *       attacking players, follows you, and pockets the diamond after a couple of seconds.</li>
+ *   <li>Right-click your friend with a sword to arm it: it fights monsters again while still following you.</li>
  *   <li>It never retaliates against its friend, and says goodbye when it dies.</li>
  * </ul>
  */
@@ -67,6 +70,8 @@ public class Human extends Monster {
     @Nullable private UUID friendId;
     @Nullable private String friendName;
     private int diamondTimer;
+    /** Spawned naturally at night: vanishes at sunrise unless befriended or named. */
+    private boolean nightSpawn;
 
     public Human(EntityType<? extends Human> type, Level level) {
         super(type, level);
@@ -91,12 +96,24 @@ public class Human extends Monster {
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason,
                                         @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
         SpawnGroupData result = super.finalizeSpawn(level, difficulty, reason, spawnData, dataTag);
+        this.nightSpawn = reason == MobSpawnType.NATURAL || reason == MobSpawnType.CHUNK_GENERATION;
         // Pick a random skin from the config list.
         List<? extends String> skins = HumanMobConfig.SKINS.get();
         if (!skins.isEmpty()) {
             this.setSkinName(skins.get(this.random.nextInt(skins.size())));
         }
         return result;
+    }
+
+    /** Natural spawns: only at night, only on the surface (open sky), only in the dark. */
+    public static boolean checkHumanSpawnRules(EntityType<Human> type, ServerLevelAccessor level, MobSpawnType reason,
+                                               BlockPos pos, RandomSource random) {
+        if (reason == MobSpawnType.NATURAL || reason == MobSpawnType.CHUNK_GENERATION) {
+            if (!HumanMobConfig.SPAWN_AT_NIGHT.get() || !level.getLevel().isNight() || !level.canSeeSky(pos)) {
+                return false;
+            }
+        }
+        return Monster.checkMonsterSpawnRules(type, level, reason, pos, random);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -166,51 +183,70 @@ public class Human extends Monster {
 
     // ---------------------------------------------------------------- items
 
+    /** Humans never pick items up off the ground. Hand them items with right-click instead. */
     @Override
     public boolean canPickUpLoot() {
-        return true;
+        return false;
     }
 
     @Override
-    public void onItemPickup(ItemEntity itemEntity) {
-        super.onItemPickup(itemEntity);
-        if (this.level().isClientSide) {
-            return;
-        }
-        ItemStack stack = itemEntity.getItem();
+    protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        ItemStack held = player.getItemInHand(hand);
 
-        if (stack.is(Items.DIAMOND) && !this.hasFriend()) {
-            Player thrower = this.findThrower(itemEntity);
-            if (thrower == null) {
-                return;
-            }
-            this.friendId = thrower.getUUID();
-            this.friendName = thrower.getGameProfile().getName();
-            this.diamondTimer = DIAMOND_HOLD_TICKS;
-            this.setPersistenceRequired();
-            this.awardDiamondsAdvancement(thrower);
-            if (isEvil()) {
-                // Stop chasing the player who just bought us off.
-                if (this.getTarget() instanceof Player) {
-                    this.setTarget(null);
+        // Right-click with a diamond: bribe / befriend.
+        if (held.is(Items.DIAMOND) && !this.hasFriend()) {
+            if (!this.level().isClientSide) {
+                this.befriend(player);
+                if (!player.getAbilities().instabuild) {
+                    held.shrink(1);
                 }
-                this.say(thrower, "Hmph... a diamond? Fine, " + this.friendName + ". I'll fight for you instead.");
-            } else {
-                this.say(thrower, "Wow! Thanks, " + this.friendName + "! How could I ever repay you?");
             }
-        } else if (stack.getItem() instanceof SwordItem && this.hasFriend()) {
-            this.say(this.getFriend(), "I'm ready to take anyone on!");
+            return InteractionResult.sidedSuccess(this.level().isClientSide);
         }
+
+        // Friend right-clicks with a sword: hand it over.
+        if (held.getItem() instanceof SwordItem && this.isFriend(player) && !this.level().isClientSide) {
+            ItemStack sword = held.copy();
+            sword.setCount(1);
+            ItemStack previous = this.getMainHandItem();
+            this.setItemSlot(EquipmentSlot.MAINHAND, sword);
+            this.setDropChance(EquipmentSlot.MAINHAND, 2.0F); // always drops your sword back if it dies
+            this.diamondTimer = -1;
+            if (!previous.isEmpty() && !previous.is(Items.DIAMOND)) {
+                this.spawnAtLocation(previous);
+            }
+            if (!player.getAbilities().instabuild) {
+                held.shrink(1);
+            }
+            this.say(player, "I'm ready to take anyone on!");
+            return InteractionResult.SUCCESS;
+        }
+
+        return super.mobInteract(player, hand);
     }
 
-    @Nullable
-    private Player findThrower(ItemEntity itemEntity) {
-        // ItemEntity stores who threw it under "Thrower" in its saved data.
-        CompoundTag tag = itemEntity.saveWithoutId(new CompoundTag());
-        if (!tag.hasUUID("Thrower")) {
-            return null;
+    private void befriend(Player player) {
+        this.friendId = player.getUUID();
+        this.friendName = player.getGameProfile().getName();
+        this.setPersistenceRequired();
+        this.awardDiamondsAdvancement(player);
+
+        // Hold up the diamond for a moment (then pocket it), unless already holding something.
+        if (this.getMainHandItem().isEmpty()) {
+            this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND));
+            this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);
+            this.diamondTimer = DIAMOND_HOLD_TICKS;
         }
-        return this.level().getPlayerByUUID(tag.getUUID("Thrower"));
+
+        if (isEvil()) {
+            // Stop chasing the player who just bought us off.
+            if (this.getTarget() instanceof Player) {
+                this.setTarget(null);
+            }
+            this.say(player, "Hmph... a diamond? Fine, " + this.friendName + ". I'll fight for you instead.");
+        } else {
+            this.say(player, "Wow! Thanks, " + this.friendName + "! How could I ever repay you?");
+        }
     }
 
     private void awardDiamondsAdvancement(Player player) {
@@ -230,6 +266,14 @@ public class Human extends Monster {
     protected void customServerAiStep() {
         super.customServerAiStep();
         this.applyWalkSpeed();
+
+        // Wild night-time Humans vanish once the sun is up (not all at once).
+        if (this.nightSpawn && !this.hasFriend() && !this.hasCustomName() && !this.isPersistenceRequired()
+                && this.level().isDay() && this.tickCount % 20 == 0 && this.random.nextInt(8) == 0) {
+            this.level().broadcastEntityEvent(this, (byte) 60); // puff of smoke
+            this.discard();
+            return;
+        }
 
         // Friends saved by the old version (name only): match them up once they're online.
         if (this.friendId == null && this.friendName != null && this.tickCount % 20 == 0) {
@@ -291,6 +335,7 @@ public class Human extends Monster {
             tag.putString("Friend", this.friendName);
         }
         tag.putInt("DiamondTimer", this.diamondTimer);
+        tag.putBoolean("NightSpawn", this.nightSpawn);
         if (!this.getSkinName().isEmpty()) {
             tag.putString("Skin", this.getSkinName());
         }
@@ -302,6 +347,7 @@ public class Human extends Monster {
         this.friendId = tag.hasUUID("FriendUUID") ? tag.getUUID("FriendUUID") : null;
         this.friendName = tag.contains("Friend") && !tag.getString("Friend").isEmpty() ? tag.getString("Friend") : null;
         this.diamondTimer = tag.contains("DiamondTimer") ? tag.getInt("DiamondTimer") : -1;
+        this.nightSpawn = tag.getBoolean("NightSpawn");
         this.setSkinName(tag.getString("Skin"));
     }
 

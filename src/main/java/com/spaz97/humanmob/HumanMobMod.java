@@ -4,11 +4,14 @@ import com.spaz97.humanmob.entity.Human;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.common.ForgeSpawnEggItem;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
+import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -43,11 +46,17 @@ public class HumanMobMod {
         ITEMS.register(modBus);
         modBus.addListener(this::onAttributes);
         modBus.addListener(this::onCreativeTabs);
+        modBus.addListener(this::onSpawnPlacements);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, HumanMobConfig.SPEC);
     }
 
     private void onAttributes(EntityAttributeCreationEvent event) {
         event.put(HUMAN.get(), Human.createAttributes().build());
+    }
+
+    private void onSpawnPlacements(SpawnPlacementRegisterEvent event) {
+        event.register(HUMAN.get(), SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                Human::checkHumanSpawnRules, SpawnPlacementRegisterEvent.Operation.REPLACE);
     }
 
     private void onCreativeTabs(BuildCreativeModeTabContentsEvent event) {

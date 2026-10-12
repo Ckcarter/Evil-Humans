@@ -12,7 +12,7 @@ gradlew.bat build        # Windows
 ```
 
 The first build downloads Minecraft and Forge, so it takes a few minutes.
-The mod ends up at `build/libs/humanmobmod-1.20.1-1.3.2.jar`. Put that in your `mods` folder
+The mod ends up at `build/libs/humanmobmod-1.20.1-1.5.0.jar`. Put that in your `mods` folder
 (Forge 1.20.1, version 47 or newer).
 
 To try it in a dev client: `./gradlew runClient`.
@@ -20,14 +20,19 @@ To try it in a dev client: `./gradlew runClient`.
 ## What it does
 
 * **Human** mob with a player model and a black/white spawn egg (Creative → Spawn Eggs).
-  As in the original, Humans don't spawn naturally.
+* **They only come out at night:** Humans spawn on the surface after dark, in every overworld biome
+  (never during the day, never in caves). When the sun comes up, wild ones vanish in a puff of smoke.
+  Befriended, name-tagged and spawn-egg Humans stay. Turn natural spawning off with `spawnAtNight = false`.
 * **Humans are evil:** they attack any player on sight (1.5 hearts per hit) and leave other monsters alone.
   Turn this off with `evil = false` in the config to get the original behaviour (they hunt monsters
   and only fight players who hit them).
-* **Bribe one with a diamond** → whoever threw it becomes its friend. It stops attacking you and
-  other players, grumbles a thank-you in chat, you get the "Diamonds to You!" advancement, it holds
-  up the diamond for a moment and pockets it, then follows you around (it never despawns once befriended).
-* While it has a friend it stops hunting, **unless you give it a sword** — then it fights monsters again.
+* **Humans never pick up items** lying on the ground. You hand them things with right-click instead.
+* **Bribe one: right-click it holding a diamond** → you become its friend (one diamond is used up).
+  It stops attacking you and other players, grumbles a thank-you in chat, you get the
+  "Diamonds to You!" advancement, it holds up the diamond for a moment and pockets it, then follows
+  you around (it never despawns once befriended).
+* While it has a friend it stops hunting, **unless you right-click it holding a sword** — it takes the
+  sword and fights monsters again. It drops the sword if it dies.
 * It never fights back against its friend, and says goodbye in chat when it dies.
 * **Skins from a config file** — see below.
 * **Name-tag it with a player name** to give it that player's skin (overrides the config).
@@ -42,6 +47,7 @@ After the game runs once with the mod, open `config/humanmobmod-common.toml` (in
 ```toml
 evil = true
 walkSpeed = 0.2
+spawnAtNight = true
 skins = ["Notch", "jeb_", "Dinnerbone", "deadmau5"]
 ```
 
@@ -55,6 +61,14 @@ Takes effect right after you save the file, for all Humans.
 How fast Humans walk — when chasing you, following a friend, or wandering. Humans never sprint.
 `0.2` = slow walk (default), `0.23` = zombie, `0.3` ≈ a walking player, `0.4`+ = running.
 Allowed range 0.05–0.5. Takes effect right after you save the file, for all Humans.
+
+### `spawnAtNight`
+
+`true` (default): Humans spawn naturally at night as described above. `false`: spawn eggs only.
+
+How often they spawn is set in the mod's data file
+`data/humanmobmod/forge/biome_modifier/add_human_spawns.json` (`weight` 40, groups of 1–2;
+zombies use 95 for comparison). Change it there and rebuild, or override it with a datapack.
 
 ### `skins`
 

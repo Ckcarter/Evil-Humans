@@ -19,6 +19,7 @@ public final class HumanMobConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> SKINS;
     public static final ForgeConfigSpec.BooleanValue EVIL;
     public static final ForgeConfigSpec.DoubleValue WALK_SPEED;
+    public static final ForgeConfigSpec.BooleanValue SPAWN_AT_NIGHT;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -26,7 +27,7 @@ public final class HumanMobConfig {
         EVIL = builder
                 .comment(
                         "If true, Humans are evil: they attack players on sight and leave monsters alone.",
-                        "Throwing one a diamond still bribes it into becoming your friend.",
+                        "Right-clicking one with a diamond still bribes it into becoming your friend.",
                         "If false, Humans behave like the original mod: they hunt monsters and only fight players who hit them.")
                 .define("evil", true);
 
@@ -36,6 +37,14 @@ public final class HumanMobConfig {
                         "0.2 = slow walk (default), 0.23 = zombie, 0.3 = about as fast as a walking player, 0.4+ = running.",
                         "Takes effect right after you save the file, for all Humans.")
                 .defineInRange("walkSpeed", 0.2D, 0.05D, 0.5D);
+
+        SPAWN_AT_NIGHT = builder
+                .comment(
+                        "If true, Humans spawn naturally on the surface at night (overworld only),",
+                        "and wild ones vanish in a puff of smoke when the sun comes up.",
+                        "Humans from spawn eggs, named Humans and befriended Humans never vanish.",
+                        "If false, Humans only come from spawn eggs.")
+                .define("spawnAtNight", true);
 
         SKINS = builder
                 .comment(
