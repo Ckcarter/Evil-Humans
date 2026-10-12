@@ -17,9 +17,25 @@ public final class HumanMobConfig {
 
     public static final ForgeConfigSpec SPEC;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> SKINS;
+    public static final ForgeConfigSpec.BooleanValue EVIL;
+    public static final ForgeConfigSpec.DoubleValue WALK_SPEED;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
+
+        EVIL = builder
+                .comment(
+                        "If true, Humans are evil: they attack players on sight and leave monsters alone.",
+                        "Throwing one a diamond still bribes it into becoming your friend.",
+                        "If false, Humans behave like the original mod: they hunt monsters and only fight players who hit them.")
+                .define("evil", true);
+
+        WALK_SPEED = builder
+                .comment(
+                        "How fast Humans walk (chasing, following and wandering).",
+                        "0.2 = slow walk (default), 0.23 = zombie, 0.3 = about as fast as a walking player, 0.4+ = running.",
+                        "Takes effect right after you save the file, for all Humans.")
+                .defineInRange("walkSpeed", 0.2D, 0.05D, 0.5D);
 
         SKINS = builder
                 .comment(

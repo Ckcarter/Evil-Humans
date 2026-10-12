@@ -22,6 +22,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -46,8 +47,9 @@ import java.util.UUID;
 /**
  * A player-like mob.
  * <ul>
- *   <li>Without a friend it hunts nearby monsters (never players unless attacked).</li>
- *   <li>Throw it a diamond and the thrower becomes its friend: it thanks you, follows you,
+ *   <li>Evil (default config): without a friend it attacks players on sight and ignores monsters.
+ *       With {@code evil = false} it hunts monsters instead and only fights players who attack it.</li>
+ *   <li>Throw it a diamond and the thrower becomes its friend: it stops attacking players, follows you,
  *       and pockets the diamond after a couple of seconds.</li>
  *   <li>Give your friend a sword and it will fight monsters again while still following you.</li>
  *   <li>It never retaliates against its friend, and says goodbye when it dies.</li>
@@ -100,8 +102,8 @@ public class Human extends Monster {
     public static AttributeSupplier.Builder createAttributes() {
         return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
-                .add(Attributes.ATTACK_DAMAGE, 2.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.3D)
+                .add(Attributes.ATTACK_DAMAGE, 3.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.2D) // slow walk; overridden by walkSpeed in the config
                 .add(Attributes.FOLLOW_RANGE, 16.0D);
     }
 
@@ -121,13 +123,23 @@ public class Human extends Monster {
                 return super.canUse() && !Human.this.isFriend(Human.this.getLastHurtByMob());
             }
         });
-        // Hunt monsters when we have no friend, or when our friend has armed us with a sword.
-        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Monster.class, 10, true, false,
-                target -> !(target instanceof Human) && this.isReadyToFight()));
+        // Evil Humans hunt players -- unless they've been bribed with a diamond.
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, 10, true, false,
+                target -> isEvil() && !this.hasFriend()));
+        // Hunt monsters when armed with a sword by our friend (or, if not evil, whenever we have no friend).
+        this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Monster.class, 10, true, false,
+                target -> !(target instanceof Human) && this.wantsToHuntMonsters()));
     }
 
-    private boolean isReadyToFight() {
-        return !this.hasFriend() || this.getMainHandItem().getItem() instanceof SwordItem;
+    private static boolean isEvil() {
+        return HumanMobConfig.EVIL.get();
+    }
+
+    private boolean wantsToHuntMonsters() {
+        if (this.hasFriend()) {
+            return this.getMainHandItem().getItem() instanceof SwordItem;
+        }
+        return !isEvil();
     }
 
     // ---------------------------------------------------------------- friend
@@ -177,7 +189,15 @@ public class Human extends Monster {
             this.diamondTimer = DIAMOND_HOLD_TICKS;
             this.setPersistenceRequired();
             this.awardDiamondsAdvancement(thrower);
-            this.say(thrower, "Wow! Thanks, " + this.friendName + "! How could I ever repay you?");
+            if (isEvil()) {
+                // Stop chasing the player who just bought us off.
+                if (this.getTarget() instanceof Player) {
+                    this.setTarget(null);
+                }
+                this.say(thrower, "Hmph... a diamond? Fine, " + this.friendName + ". I'll fight for you instead.");
+            } else {
+                this.say(thrower, "Wow! Thanks, " + this.friendName + "! How could I ever repay you?");
+            }
         } else if (stack.getItem() instanceof SwordItem && this.hasFriend()) {
             this.say(this.getFriend(), "I'm ready to take anyone on!");
         }
@@ -209,6 +229,7 @@ public class Human extends Monster {
     @Override
     protected void customServerAiStep() {
         super.customServerAiStep();
+        this.applyWalkSpeed();
 
         // Friends saved by the old version (name only): match them up once they're online.
         if (this.friendId == null && this.friendName != null && this.tickCount % 20 == 0) {
@@ -227,6 +248,18 @@ public class Human extends Monster {
                 this.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
                 this.diamondTimer = -1;
             }
+        }
+    }
+
+    /** Keep the walking speed in line with the config (so edits apply without a restart). */
+    private void applyWalkSpeed() {
+        AttributeInstance speed = this.getAttribute(Attributes.MOVEMENT_SPEED);
+        double wanted = HumanMobConfig.WALK_SPEED.get();
+        if (speed != null && speed.getBaseValue() != wanted) {
+            speed.setBaseValue(wanted);
+        }
+        if (this.isSprinting()) {
+            this.setSprinting(false);
         }
     }
 
