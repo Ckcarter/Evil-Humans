@@ -1,0 +1,23 @@
+{
+  "parent": "minecraft:story/mine_diamond",
+  "display": {
+    "icon": {
+      "item": "minecraft:diamond"
+    },
+    "title": {
+      "translate": "advancements.humanmobmod.diamonds_to_you.title"
+    },
+    "description": {
+      "translate": "advancements.humanmobmod.diamonds_to_you.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "gift": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}
