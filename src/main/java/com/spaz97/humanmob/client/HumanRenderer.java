@@ -1,6 +1,7 @@
 package com.spaz97.humanmob.client;
 
 import com.spaz97.humanmob.entity.Human;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelLayers;
@@ -19,6 +20,19 @@ public class HumanRenderer extends HumanoidMobRenderer<Human, PlayerModel<Human>
                 new HumanoidModel<>(context.bakeLayer(ModelLayers.PLAYER_OUTER_ARMOR)),
                 context.getModelManager()));
         this.addLayer(new Deadmau5EarsLayer(this));
+    }
+
+    /** Show the skin's player name above the head, like a real player (within 64 blocks). */
+    @Override
+    protected boolean shouldShowName(Human human) {
+        if (human.isNamedAfterSkin()) {
+            Minecraft minecraft = Minecraft.getInstance();
+            return Minecraft.renderNames()
+                    && human != minecraft.getCameraEntity()
+                    && (minecraft.player == null || !human.isInvisibleTo(minecraft.player))
+                    && !human.isVehicle();
+        }
+        return super.shouldShowName(human);
     }
 
     @Override

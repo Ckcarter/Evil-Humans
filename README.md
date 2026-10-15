@@ -12,7 +12,7 @@ gradlew.bat build        # Windows
 ```
 
 The first build downloads Minecraft and Forge, so it takes a few minutes.
-The mod ends up at `build/libs/humanmobmod-1.20.1-1.5.0.jar`. Put that in your `mods` folder
+The mod ends up at `build/libs/humanmobmod-1.20.1-1.6.0.jar`. Put that in your `mods` folder
 (Forge 1.20.1, version 47 or newer).
 
 To try it in a dev client: `./gradlew runClient`.
@@ -48,6 +48,7 @@ After the game runs once with the mod, open `config/humanmobmod-common.toml` (in
 evil = true
 walkSpeed = 0.2
 spawnAtNight = true
+nameAfterSkin = true
 skins = ["Notch", "jeb_", "Dinnerbone", "deadmau5"]
 ```
 
@@ -69,6 +70,13 @@ Allowed range 0.05–0.5. Takes effect right after you save the file, for all Hu
 How often they spawn is set in the mod's data file
 `data/humanmobmod/forge/biome_modifier/add_human_spawns.json` (`weight` 40, groups of 1–2;
 zombies use 95 for comparison). Change it there and rebuild, or override it with a datapack.
+
+### `nameAfterSkin`
+
+`true` (default): a Human wearing a skin from `skins` is named after that player. The name floats
+above its head like a real player's and is used in chat ("<Notch> Hmph... a diamond?") and death
+messages ("Steve was slain by Notch"). A name tag overrides it. Unlike a name tag, it doesn't stop
+wild Humans from despawning or vanishing at sunrise. `false`: no names.
 
 ### `skins`
 

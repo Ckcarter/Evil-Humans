@@ -91,6 +91,17 @@ public class Human extends Monster {
         this.entityData.set(DATA_SKIN, name == null ? "" : name);
     }
 
+    /** True when this Human goes by the name of the skin it was given (no name tag on it). */
+    public boolean isNamedAfterSkin() {
+        return !this.hasCustomName() && !this.getSkinName().isEmpty() && HumanMobConfig.NAME_AFTER_SKIN.get();
+    }
+
+    /** Named after its skin (e.g. "Notch"). Used for the name above its head, chat and death messages. */
+    @Override
+    public Component getName() {
+        return this.isNamedAfterSkin() ? Component.literal(this.getSkinName()) : super.getName();
+    }
+
     @Override
     @Nullable
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason,

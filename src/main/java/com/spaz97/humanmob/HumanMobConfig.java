@@ -20,6 +20,7 @@ public final class HumanMobConfig {
     public static final ForgeConfigSpec.BooleanValue EVIL;
     public static final ForgeConfigSpec.DoubleValue WALK_SPEED;
     public static final ForgeConfigSpec.BooleanValue SPAWN_AT_NIGHT;
+    public static final ForgeConfigSpec.BooleanValue NAME_AFTER_SKIN;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -45,6 +46,13 @@ public final class HumanMobConfig {
                         "Humans from spawn eggs, named Humans and befriended Humans never vanish.",
                         "If false, Humans only come from spawn eggs.")
                 .define("spawnAtNight", true);
+
+        NAME_AFTER_SKIN = builder
+                .comment(
+                        "If true, a Human wearing a skin from the list below is named after that player:",
+                        "the name shows above its head like a real player's, and is used in chat and death messages.",
+                        "A name tag still overrides it.")
+                .define("nameAfterSkin", true);
 
         SKINS = builder
                 .comment(
